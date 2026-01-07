@@ -1,0 +1,92 @@
+import subprocess
+import os
+import numpy as np
+from rdkit import Chem
+from rdkit.Chem import Descriptors
+from rdkit.Chem.FilterCatalog import FilterCatalog, FilterCatalogParams
+
+
+phys_filters = {"logP": Descriptors.MolLogP,
+                "Mw": Descriptors.MolWt,
+                "HBA": Descriptors.NumHAcceptors,
+                "HBD": Descriptors.NumHDonors,
+                "Rings": Descriptors.RingCount,
+                "RotB": Descriptors.NumRotatableBonds,
+                }
+
+
+def smi_to_neutral_mol(smi):
+    mol = Chem.MolFromSmiles(smi)
+    pattern = Chem.MolFromSmarts("[+1!h0!$([*]~[-1,-2,-3,-4]),-1!$([*]~[+1,+2,+3,+4])]")
+    at_matches = mol.GetSubstructMatches(pattern)
+    at_matches_list = [y[0] for y in at_matches]
+    if len(at_matches_list) > 0:
+        for at_idx in at_matches_list:
+            atom = mol.GetAtomWithIdx(at_idx)
+            chg = atom.GetFormalCharge()
+            hcount = atom.GetTotalNumHs()
+            atom.SetFormalCharge(0)
+            atom.SetNumExplicitHs(hcount - chg)
+            atom.UpdatePropertyCache()
+    return mol
+
+
+class IntervalFilter:
+    def __init__(self, function):
+        self.lims = {"min": -float('inf'), "max": float('inf')}
+        self.function = function
+
+    def filter(self, mol):
+        prop = self.function(mol)
+        return self.lims["min"] <= prop <= self.lims["max"]
+
+
+class Filtering:
+    def __init__(self, arguments):
+        self.allowed = {"C", "O", "N", "I", "Br", "Cl", "F", "S"}
+        self.phys_filters = {}
+        self.substructure = False
+
+        normalized_args = {}
+        if isinstance(arguments, dict):
+            normalized_args = {str(k).upper(): v for k, v in arguments.items()}
+        params = FilterCatalogParams()
+        if normalized_args.get("PAINS"):
+                params.AddCatalog(FilterCatalogParams.FilterCatalogs.PAINS_A)
+        if normalized_args.get("BRENK"):
+                params.AddCatalog(FilterCatalogParams.FilterCatalogs.BRENK)
+        self.catalog = FilterCatalog(params)
+
+    def check_weird_elements(self, m):
+        atoms = {a.GetSymbol() for a in m.GetAtoms()}
+        return len(atoms.difference(self.allowed)) > 0
+
+    def filter_mol(self, mol):
+        if self.check_weird_elements(mol):
+            return False
+
+        if self.catalog is not None and self.catalog.HasMatch(mol):
+            return False
+        for filter in self.phys_filters:
+            if not self.phys_filters[filter].filter(mol):
+                return False
+        return True
+
+    def filter_mol_lst(self, mol_lst):
+        mask = []
+        for mol in mol_lst:
+            mask.append(self.filter_mol(mol))
+        return mask
+
+    def filter_smi_lst(self, smi_lst):
+        mask = []
+        for smi in smi_lst:
+            mol = Chem.MolFromSmiles(smi)
+            mask.append(self.filter_mol(mol))
+        return mask
+
+    def filter_smi(self, smi):
+        mol = Chem.MolFromSmiles(smi)
+        return self.filter_mol(mol)
+
+

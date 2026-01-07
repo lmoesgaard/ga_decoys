@@ -1,0 +1,8 @@
+include README.md
+include LICENSE
+include CONTRIBUTING.md
+recursive-include config *.json
+recursive-include data *.npy
+recursive-include input_smiles *.smi
+recursive-include molecule *.json
+recursive-include filtering *.csv *.pkl.gz
