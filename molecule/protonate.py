@@ -4,6 +4,7 @@ import io
 import json
 import sys
 import time
+import os
 from rdkit import Chem
 
 
@@ -60,7 +61,9 @@ def tautomerize(
     return [protomers.get(l.split(" ")[1], None) for l in smiles.split("\n")[:-1]]
 
 
-def protonate_smiles(smi_lst, config="molecule/default_protonate.json"):
+def protonate_smiles(smi_lst, config=None):
+    if config is None:
+        config = os.path.join(os.path.dirname(__file__), "default_protonate.json")
     with open(config, 'r') as f:
         ca_parms = json.load(f)
 
