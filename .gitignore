@@ -132,6 +132,6 @@ dmypy.json
 
 # Project-specific
 output/
-*.npy
+#*.npy
 test_run_all.npy
 results.csv
