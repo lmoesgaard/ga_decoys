@@ -23,6 +23,9 @@ import molecule
 rdBase.DisableLog('rdApp.error')
 rdBase.DisableLog('rdApp.warning')
 
+# Get the directory where this script is located
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 def get_scoring_options(smiles: str, config: dict, sample_std: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     mol = Chem.MolFromSmiles(smiles)
@@ -138,7 +141,7 @@ def main():
     parser = argparse.ArgumentParser(description='Genetic Algorithm for Decoy Generation')
     parser.add_argument('--input', type=str, required=True, help='Input .smi file (one SMILES per line)')
     parser.add_argument('--outdir', type=str, required=True, help='Output directory')
-    parser.add_argument('--config', type=str, default='config/test.json', help='Configuration JSON file')
+    parser.add_argument('--config', type=str, default=os.path.join(SCRIPT_DIR, 'config/test.json'), help='Configuration JSON file')
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -160,7 +163,10 @@ def main():
     # Use relaxed cutoff during optimization, apply user's cutoff at the end
     optimization_cutoff = 0.65 if tanimoto_cutoff is not None else None
 
-    sample_std = np.load(config.get("sampled_std", "data/sampled_std.npy"))
+    sampled_std_path = config.get("sampled_std", os.path.join(SCRIPT_DIR, "data/sampled_std.npy"))
+    if not os.path.isabs(sampled_std_path):
+        sampled_std_path = os.path.join(SCRIPT_DIR, sampled_std_path)
+    sample_std = np.load(sampled_std_path)
 
     print('* RDKit version', rdBase.rdkitVersion)
     print('* population_size', population_size)
@@ -181,7 +187,7 @@ def main():
     for smiles, name in input_entries:
         charge = get_actual_formal_charge(smiles)
         molecule_filters = {"Charge": charge, "PAINS": True, "BRENK": True}
-        file_name = "input_smiles/{}_{}.smi".format(*charge)
+        file_name = os.path.join(SCRIPT_DIR, "input_smiles/{}_{}.smi".format(*charge))
         scoring_options = get_scoring_options(smiles, config, sample_std)
 
         ga_opt = ga.GAOptions(
