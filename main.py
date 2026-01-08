@@ -106,6 +106,18 @@ def gbga(ga_opt: ga.GAOptions, mo_opt: molecule.MoleculeOptions, scoring_options
             new_population, new_scores = score(initial_population, scoring_options, mo_opt)
             population, scores = ga.sanitize(population+new_population, scores+new_scores, ga_opt)
 
+        # Apply final stricter tanimoto cutoff if specified
+        if ga_opt.final_tanimoto_cutoff is not None and ga_opt.final_tanimoto_cutoff != ga_opt.tanimoto_cutoff:
+            final_opt = ga.GAOptions(
+                ga_opt.input_filename, ga_opt.basename, ga_opt.num_generations,
+                ga_opt.population_size, ga_opt.mating_pool_size, ga_opt.mutation_rate,
+                ga_opt.max_score, ga_opt.random_seed, ga_opt.prune_population,
+                tanimoto_cutoff=ga_opt.final_tanimoto_cutoff,
+                final_tanimoto_cutoff=ga_opt.final_tanimoto_cutoff,
+                target_smiles=ga_opt.target_smiles
+            )
+            population, scores = ga.sanitize(population, scores, final_opt)
+
         return population, scores
     except Exception as e:
         import traceback
@@ -145,6 +157,8 @@ def main():
     basename = config.get('basename', args.outdir)
     max_molecule_size = config.get('max_molecule_size', 40)
     tanimoto_cutoff = config.get('tanimoto_cutoff', None)
+    # Use relaxed cutoff during optimization, apply user's cutoff at the end
+    optimization_cutoff = 0.65 if tanimoto_cutoff is not None else None
 
     sample_std = np.load(config.get("sampled_std", "data/sampled_std.npy"))
 
@@ -180,7 +194,8 @@ def main():
             9999.0,
             deterministic_seed(smiles),
             True,
-            tanimoto_cutoff=tanimoto_cutoff,
+            tanimoto_cutoff=optimization_cutoff,
+            final_tanimoto_cutoff=tanimoto_cutoff,
             target_smiles=smiles,
         )
         mo_opt = molecule.MoleculeOptions(

@@ -1,15 +1,15 @@
 {
-    "HeavyAtomCount": 1,
+    "HeavyAtomCount": 2,
     "MolWt": 0,
     "NumHDonors": 1,
     "NumHAcceptors": 1,
-    "LogP": 1,
+    "LogP": 2,
     "TPSA": 0,
     "tanimoto_cutoff": 0.35,
     "max_molecule_size": 40,
-    "population_size": 50,
-    "mating_pool_size": 1000,
-    "generations": 50,
-    "mutation_rate": 0.5,
+    "population_size": 100,
+    "mating_pool_size": 100,
+    "generations": 10,
+    "mutation_rate": 0.75,
     "n_cpus": 6
 }

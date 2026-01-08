@@ -25,6 +25,7 @@ class GAOptions:
     random_seed: int
     prune_population: bool
     tanimoto_cutoff: Optional[float] = None
+    final_tanimoto_cutoff: Optional[float] = None
     target_smiles: Optional[str] = None
 
 
@@ -79,15 +80,24 @@ def reproduce(mating_pool: List[Chem.Mol],
         if attempts > max_attempts:
             print(f"Warning: Could not generate full population. Generated {len(new_population)}/{options.population_size} children after {attempts} attempts.")
             break
-            
-        parent_a = np.random.choice(mating_pool)
-        parent_b = np.random.choice(mating_pool)
-        new_child = crossover(parent_a, parent_b, molecule_options)
         
-        if new_child is not None:
-            mutated_child = mutate(new_child, options.mutation_rate, molecule_options)
-            if mutated_child is not None:
-                new_population.append(mutated_child)
+        # Decide whether to do crossover or mutation-only
+        if np.random.random() < options.mutation_rate:
+            # Mutation-only path: select single parent and mutate (or keep parent if mutation fails)
+            parent = np.random.choice(mating_pool)
+            new_child = mutate(parent, 1.0, molecule_options)  # Always attempt mutation
+            # If mutation fails, accept the parent as-is to keep population growing
+            new_population.append(new_child if new_child is not None else parent)
+        else:
+            # Crossover path: crossover two parents, then maybe mutate
+            parent_a = np.random.choice(mating_pool)
+            parent_b = np.random.choice(mating_pool)
+            new_child = crossover(parent_a, parent_b, molecule_options)
+            
+            if new_child is not None:
+                mutated_child = mutate(new_child, options.mutation_rate, molecule_options)
+                # Keep crossover result even if mutation fails
+                new_population.append(mutated_child if mutated_child is not None else new_child)
     rdBase.EnableLog("rdApp.error")
     rdBase.EnableLog("rdApp.warning")
 
