@@ -4,7 +4,7 @@
     "tautomer_limit": 20,
     "protomer_limit": 20,
     "stereo_expand_limit": 4,
-    "cxcalc_exe": "/Users/moesgaard/Downloads/freechem-19.15.r4/bin/cxcalc",
-    "molconvert_exe": "/Users/moesgaard/Downloads/freechem-19.15.r4/bin/molconvert",
+    "cxcalc_exe": "/home/lmoes/projects/rrg-mailhoto/share/software/freechem-19.15.r4/bin/cxcalc",
+    "molconvert_exe": "/home/lmoes/projects/rrg-mailhoto/share/software/freechem-19.15.r4/bin/molconvert",
     "verbosity": 0
 }
