@@ -63,6 +63,9 @@ def tautomerize(
         parts = l.split()
         input_names.append(parts[1] if len(parts) > 1 else None)
 
+    if len(input_names) == 0:
+        return [], []
+
     _stderr = None if verbose else subprocess.DEVNULL
 
     cmd1 =  f'{cxcalc_exe} -g dominanttautomerdistribution -H {pH} -C false -t tautomer-dist'
@@ -70,7 +73,7 @@ def tautomerize(
 
     output2_text = filter_sdf(output1.decode())
     if not output2_text.strip():
-        return [None] * len(input_names)
+        return [None] * len(input_names), input_names
     output2 = output2_text.encode()
 
     cmd3 = f'{cxcalc_exe} -g microspeciesdistribution -H {pH} -t protomer-dist'
@@ -78,11 +81,11 @@ def tautomerize(
 
     output4 = filter_sdf(output3.decode())
     if not output4.strip():
-        return [None] * len(input_names)
+        return [None] * len(input_names), input_names
 
     table = sdf_to_df(output4)
     if table is None or table.empty or "pose" not in table.columns or "name" not in table.columns:
-        return [None] * len(input_names)
+        return [None] * len(input_names), input_names
 
     def _molblock_to_smiles(molblock: str):
         try:
@@ -97,7 +100,7 @@ def tautomerize(
     # Keep only rows that successfully converted.
     table = table[table['#SMILES'].notnull()]
     if table.empty:
-        return [None] * len(input_names)
+        return [None] * len(input_names), input_names
 
     for col in ['tautomer-dist', 'protomer-dist']:
         if col not in table.columns:
@@ -105,7 +108,7 @@ def tautomerize(
 
     table = table[['#SMILES', 'name', 'tautomer-dist', 'protomer-dist']]
     protomers = table.set_index("name").to_dict().get('#SMILES', {})
-    return [protomers.get(name, None) for name in input_names]
+    return [protomers.get(name, None) for name in input_names], input_names
 
 
 def protonate_smiles(smi_lst, config=None):
@@ -116,7 +119,7 @@ def protonate_smiles(smi_lst, config=None):
 
     # cxcalc expects "SMILES name" per line.
     smiles = "\n".join(f"{smi} lig{i}" for i, smi in enumerate(smi_lst)) + "\n"
-    protomers = tautomerize(
+    protomers, _ = tautomerize(
         smiles, pH=ca_parms["pH"], cxcalc_exe=ca_parms["cxcalc_exe"],
         verbose=ca_parms.get("verbose", False))
     return protomers
@@ -143,10 +146,10 @@ if __name__ == "__main__":
         smiles = f.read()
 
     t0 = time.time()
-    protomers = tautomerize(
+    protomers, names = tautomerize(
         smiles, pH=ca_parms["pH"], cxcalc_exe=ca_parms["cxcalc_exe"],
         verbose=ca_parms.get("verbose", False))
 
     with open(outfile, "w") as f:
-        for protomer in protomers:
-            f.write(f"{protomer}\n")
+        for protomer, name in zip(protomers, names):
+            f.write(f"{protomer} {name}\n")
