@@ -127,7 +127,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 3:
         config_file = sys.argv[3]
     else:
-        config_file = 'default_protonate.json'
+        config_file = os.path.join(os.path.dirname(__file__), "default_protonate.json")
 
     with open(config_file, 'r') as f:
         ca_parms = json.load(f)
