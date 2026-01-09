@@ -79,10 +79,30 @@ def score(input_population: List[Chem.Mol], scoring_options: Tuple[np.ndarray, n
         fitness = 1.0 / (1.0 + error)
         scores.append(fitness)
 
-    protonated_smiles = protonate_smiles([Chem.MolToSmiles(m) for m in input_population])
-    charges = [get_actual_formal_charge(s) if s is not None else (None, None) for s in protonated_smiles]
-    scores = [score*int(molecule_options.desired_charge[0] == charge[0] and molecule_options.desired_charge[1] == charge[1]) for score, charge in zip(scores, charges)]
-    input_population = [Chem.MolFromSmiles(smi) if smi is not None else None for smi in protonated_smiles]
+    # Protonate only valid molecules but keep list alignment.
+    indices = []
+    smiles_to_protonate = []
+    for i, mol in enumerate(input_population):
+        if mol is None:
+            continue
+        try:
+            smiles_to_protonate.append(Chem.MolToSmiles(mol))
+            indices.append(i)
+        except Exception:
+            continue
+
+    protonated_smiles_full = [None] * len(input_population)
+    if smiles_to_protonate:
+        protonated_smiles = protonate_smiles(smiles_to_protonate)
+        for i, smi in zip(indices, protonated_smiles):
+            protonated_smiles_full[i] = smi
+
+    charges = [get_actual_formal_charge(s) if s is not None else (None, None) for s in protonated_smiles_full]
+    scores = [
+        score * int(molecule_options.desired_charge[0] == charge[0] and molecule_options.desired_charge[1] == charge[1])
+        for score, charge in zip(scores, charges)
+    ]
+    input_population = [Chem.MolFromSmiles(smi) if smi is not None else None for smi in protonated_smiles_full]
     return input_population[:], scores
 
 
@@ -101,13 +121,23 @@ def gbga(ga_opt: ga.GAOptions, mo_opt: molecule.MoleculeOptions, scoring_options
         initial_population = ga.make_initial_population(ga_opt)
         population, scores = score(initial_population, scoring_options, mo_opt)
 
+        if len(population) == 0:
+            return [], []
+
         for generation in range(ga_opt.num_generations):
+            if len(population) == 0:
+                break
 
             mating_pool = ga.make_mating_pool(population, scores, ga_opt)
+            if len(mating_pool) == 0:
+                break
             initial_population = ga.reproduce(mating_pool, ga_opt, mo_opt)
 
             new_population, new_scores = score(initial_population, scoring_options, mo_opt)
             population, scores = ga.sanitize(population+new_population, scores+new_scores, ga_opt)
+
+            if len(population) == 0:
+                break
 
         # Apply final stricter tanimoto cutoff if specified
         if ga_opt.final_tanimoto_cutoff is not None and ga_opt.final_tanimoto_cutoff != ga_opt.tanimoto_cutoff:

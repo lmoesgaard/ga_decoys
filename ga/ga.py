@@ -51,6 +51,9 @@ def make_mating_pool(population: List[Chem.Mol], scores: List[float], options: G
         :param options: GA options
         :returns: list of molecules to use as a starting point for offspring generation
     """
+    if len(population) == 0:
+        return []
+
     fitness = calculate_normalized_fitness(scores)
     mating_pool = []
     for i in range(options.mating_pool_size):
@@ -72,6 +75,12 @@ def reproduce(mating_pool: List[Chem.Mol],
     rdBase.DisableLog("rdApp.error")
     rdBase.DisableLog("rdApp.warning")
     new_population: List[Chem.Mol] = []
+
+    if len(mating_pool) == 0:
+        rdBase.EnableLog("rdApp.error")
+        rdBase.EnableLog("rdApp.warning")
+        return new_population
+
     attempts = 0
     max_attempts = options.population_size * 100  # Safety limit
 
@@ -114,16 +123,25 @@ def sanitize(population: List[Chem.Mol],
     :param ga_options: GA options
     :return: a tuple of molecules and scores
     """
+    # Drop None molecules early to avoid RDKit crashes.
+    population_pairs = [(score, mol) for score, mol in zip(scores, population) if mol is not None]
+    if len(population_pairs) == 0:
+        return [], []
+
     if ga_options.prune_population:
-        smiles_list = []
+        seen_smiles = set()
         population_tuples = []
-        for score, mol in zip(scores, population):
-            smiles = Chem.MolToSmiles(mol)
-            if smiles not in smiles_list:
-                smiles_list.append(smiles)
-                population_tuples.append((score, mol))
+        for score, mol in population_pairs:
+            try:
+                smiles = Chem.MolToSmiles(mol)
+            except Exception:
+                continue
+            if smiles in seen_smiles:
+                continue
+            seen_smiles.add(smiles)
+            population_tuples.append((score, mol))
     else:
-        population_tuples = list(zip(scores, population))
+        population_tuples = population_pairs
 
     population_tuples = sorted(population_tuples, key=lambda x: x[0], reverse=True)
 
@@ -173,13 +191,21 @@ def sanitize(population: List[Chem.Mol],
         # If the cutoff is too strict, fall back to filling remaining slots by score
         # to keep the GA operational.
         if len(selected) < ga_options.population_size:
-            selected_smiles = {Chem.MolToSmiles(m) for _, m in selected}
+            selected_smiles = set()
+            for _, m in selected:
+                try:
+                    selected_smiles.add(Chem.MolToSmiles(m))
+                except Exception:
+                    continue
             for score, mol in population_tuples:
                 if len(selected) >= ga_options.population_size:
                     break
                 if mol is None:
                     continue
-                smi = Chem.MolToSmiles(mol)
+                try:
+                    smi = Chem.MolToSmiles(mol)
+                except Exception:
+                    continue
                 if smi in selected_smiles:
                     continue
                 selected.append((score, mol))
