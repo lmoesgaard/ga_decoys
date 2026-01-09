@@ -4,8 +4,8 @@ from typing import List, Union
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from molecule import mol_ok
-from molecule import MoleculeOptions
+from ..molecule import mol_ok
+from ..molecule import MoleculeOptions
 
 
 def cut(mol: Chem.Mol) -> Union[None, List[Chem.Mol]]:

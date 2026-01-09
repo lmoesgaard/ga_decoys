@@ -1,8 +1,8 @@
 from enum import Enum
 from dataclasses import dataclass
 from typing import Dict, Union, Tuple
-from filtering import Filtering
-from molecule.descriptors import get_actual_formal_charge
+from ..filtering import Filtering
+from .descriptors import get_actual_formal_charge
 
 import numpy as np
 from rdkit import Chem

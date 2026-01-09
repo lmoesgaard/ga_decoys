@@ -5,8 +5,8 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from molecule import MoleculeOptions
-from molecule import mol_ok, ring_ok
+from ..molecule import MoleculeOptions
+from ..molecule import mol_ok, ring_ok
 
 
 def delete_atom() -> str:

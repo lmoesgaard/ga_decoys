@@ -7,7 +7,7 @@ from rdkit import rdBase
 from rdkit import DataStructs
 from rdkit.Chem import rdFingerprintGenerator
 
-from molecule import MoleculeOptions
+from ..molecule import MoleculeOptions
 from .crossover import crossover
 from .mutation import mutate
 from .util import calculate_normalized_fitness, read_smiles_file

@@ -13,12 +13,12 @@ import re
 from rdkit import Chem
 import numpy as np
 from rdkit import rdBase
-from molecule.descriptors import descriptor_list, get_actual_formal_charge, get_prop_arr
-from filtering import Filtering
-from molecule import protonate_smiles
+from .molecule.descriptors import descriptor_list, get_actual_formal_charge, get_prop_arr
+from .filtering import Filtering
+from .molecule import protonate_smiles
 
-import ga
-import molecule
+from . import ga
+from . import molecule
 
 rdBase.DisableLog('rdApp.error')
 rdBase.DisableLog('rdApp.warning')

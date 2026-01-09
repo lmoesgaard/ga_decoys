@@ -12,7 +12,8 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/ga_decoys",
-    packages=find_packages(),
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
@@ -34,11 +35,18 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "ga-decoys=main:main",
+            "ga-decoys=ga_decoys.main:main",
         ],
     },
     package_data={
-        "": ["config/*.json", "data/*.npy", "input_smiles/*.smi", "molecule/*.json"],
+        "ga_decoys": [
+            "config/*.json",
+            "data/*.npy",
+            "input_smiles/*.smi",
+            "molecule/*.json",
+            "filtering/*.csv",
+            "filtering/*.pkl.gz",
+        ],
     },
     include_package_data=True,
 )

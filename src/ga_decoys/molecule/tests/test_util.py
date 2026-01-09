@@ -1,8 +1,8 @@
 from rdkit import Chem
-from molecule import ring_ok, mol_ok
-from molecule.util import mol_is_sane, create_molecule_options
-from molecule import MoleculeOptions
-from filtering import Filtering
+from ga_decoys.molecule import ring_ok, mol_ok
+from ga_decoys.molecule.util import mol_is_sane, create_molecule_options
+from ga_decoys.molecule import MoleculeOptions
+from ga_decoys.filtering import Filtering
 
 from rdkit import rdBase
 rdBase.DisableLog('rdApp.error')
