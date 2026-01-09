@@ -1,3 +1,10 @@
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    category=RuntimeWarning,
+    message="to-Python converter for boost::shared_ptr",
+)
+
 import subprocess
 import pandas as pd
 import io
