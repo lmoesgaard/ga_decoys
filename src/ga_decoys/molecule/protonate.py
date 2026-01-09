@@ -116,9 +116,16 @@ def protonate_smiles(smi_lst, config=None):
 
 
 if __name__ == "__main__":
+    assert len(sys.argv) >= 2, "Usage: protonate.py input.smiles [output.smi] [config.json]"
+    
     smiles = sys.argv[1]
     if len(sys.argv) > 2:
-        config_file = sys.argv[2]
+        outfile = sys.argv[2]
+    else:
+        outfile = 'output.smi'
+
+    if len(sys.argv) > 3:
+        config_file = sys.argv[3]
     else:
         config_file = 'default_protonate.json'
 
@@ -133,7 +140,6 @@ if __name__ == "__main__":
         smiles, pH=ca_parms["pH"], cxcalc_exe=ca_parms["cxcalc_exe"],
         verbose=ca_parms.get("verbose", False))
 
-    with open("output.smi", "w") as f:
+    with open(outfile, "w") as f:
         for protomer in protomers:
             f.write(f"{protomer}\n")
-    print(time.time() - t0)
