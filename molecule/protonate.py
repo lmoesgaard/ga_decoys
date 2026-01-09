@@ -33,7 +33,13 @@ def sdf_to_df(f):
 
 def filter_sdf(file):
     df = sdf_to_df(file)
-    return "".join(df.drop_duplicates("name").pose.to_list())
+    if df is None or df.empty:
+        return ""
+    if "pose" not in df.columns:
+        return ""
+    if "name" in df.columns:
+        df = df.drop_duplicates("name")
+    return "".join(df["pose"].astype(str).to_list())
 
 def tautomerize(
         smiles, pH,
@@ -43,22 +49,56 @@ def tautomerize(
     if verbose:
         print('Tautomerization')
 
+    # Keep output aligned to the number of input lines.
+    input_lines = [l for l in smiles.split("\n") if l.strip()]
+    input_names = []
+    for l in input_lines:
+        parts = l.split()
+        input_names.append(parts[1] if len(parts) > 1 else None)
+
     _stderr = None if verbose else subprocess.DEVNULL
 
     cmd1 =  f'{cxcalc_exe} -g dominanttautomerdistribution -H {pH} -C false -t tautomer-dist'
     output1 = subprocess.check_output(cmd1, shell=True, input=smiles.encode(), stderr=_stderr)
 
-    output2 = filter_sdf(output1.decode()).encode()
+    output2_text = filter_sdf(output1.decode())
+    if not output2_text.strip():
+        return [None] * len(input_names)
+    output2 = output2_text.encode()
 
     cmd3 = f'{cxcalc_exe} -g microspeciesdistribution -H {pH} -t protomer-dist'
     output3 = subprocess.check_output(cmd3, shell=True, input=output2, stderr=_stderr)
 
     output4 = filter_sdf(output3.decode())
+    if not output4.strip():
+        return [None] * len(input_names)
+
     table = sdf_to_df(output4)
-    table['#SMILES'] = table.pose.apply(lambda x: Chem.MolToSmiles(Chem.MolFromMolBlock(x)))
+    if table is None or table.empty or "pose" not in table.columns or "name" not in table.columns:
+        return [None] * len(input_names)
+
+    def _molblock_to_smiles(molblock: str):
+        try:
+            mol = Chem.MolFromMolBlock(molblock, sanitize=True, removeHs=True)
+            if mol is None:
+                return None
+            return Chem.MolToSmiles(mol)
+        except Exception:
+            return None
+
+    table['#SMILES'] = table.pose.apply(_molblock_to_smiles)
+    # Keep only rows that successfully converted.
+    table = table[table['#SMILES'].notnull()]
+    if table.empty:
+        return [None] * len(input_names)
+
+    for col in ['tautomer-dist', 'protomer-dist']:
+        if col not in table.columns:
+            table[col] = None
+
     table = table[['#SMILES', 'name', 'tautomer-dist', 'protomer-dist']]
-    protomers = table.set_index("name").to_dict()['#SMILES']
-    return [protomers.get(l.split(" ")[1], None) for l in smiles.split("\n")[:-1]]
+    protomers = table.set_index("name").to_dict().get('#SMILES', {})
+    return [protomers.get(name, None) for name in input_names]
 
 
 def protonate_smiles(smi_lst, config=None):
@@ -67,7 +107,8 @@ def protonate_smiles(smi_lst, config=None):
     with open(config, 'r') as f:
         ca_parms = json.load(f)
 
-    smiles = " lig{}\n".join(smi_lst).format(*range(len(smi_lst)))
+    # cxcalc expects "SMILES name" per line.
+    smiles = "\n".join(f"{smi} lig{i}" for i, smi in enumerate(smi_lst)) + "\n"
     protomers = tautomerize(
         smiles, pH=ca_parms["pH"], cxcalc_exe=ca_parms["cxcalc_exe"],
         verbose=ca_parms.get("verbose", False))
