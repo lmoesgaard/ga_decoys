@@ -190,8 +190,7 @@ def main():
     basename = config.get('basename', args.outdir)
     max_molecule_size = config.get('max_molecule_size', 40)
     tanimoto_cutoff = config.get('tanimoto_cutoff', None)
-    # Use relaxed cutoff during optimization, apply user's cutoff at the end
-    optimization_cutoff = 0.65 if tanimoto_cutoff is not None else None
+    optimization_cutoff = 0.35 if tanimoto_cutoff is not None else None
 
     sampled_std_path = config.get("sampled_std", os.path.join(SCRIPT_DIR, "data/sampled_std.npy"))
     if not os.path.isabs(sampled_std_path):
