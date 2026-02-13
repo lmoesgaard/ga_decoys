@@ -66,7 +66,12 @@ def deterministic_seed(smiles: str) -> int:
     return int.from_bytes(digest[:4], byteorder='little', signed=False)
 
 
-def score(input_population: List[Chem.Mol], scoring_options: Tuple[np.ndarray, np.ndarray], molecule_options: molecule.MoleculeOptions) -> Tuple[List[Chem.Mol], List[float]]:
+def score(
+    input_population: List[Chem.Mol],
+    scoring_options: Tuple[np.ndarray, np.ndarray],
+    molecule_options: molecule.MoleculeOptions,
+    protonate_config=None,
+) -> Tuple[List[Chem.Mol], List[float]]:
     target_prop_array, w = scoring_options
     scores = []
     for mol in input_population:
@@ -93,7 +98,7 @@ def score(input_population: List[Chem.Mol], scoring_options: Tuple[np.ndarray, n
 
     protonated_smiles_full = [None] * len(input_population)
     if smiles_to_protonate:
-        protonated_smiles = protonate_smiles(smiles_to_protonate)
+        protonated_smiles = protonate_smiles(smiles_to_protonate, config=protonate_config)
         for i, smi in zip(indices, protonated_smiles):
             protonated_smiles_full[i] = smi
 
@@ -113,13 +118,18 @@ def print_list(value: List[float], name: str) -> None:
     print(s)
 
 
-def gbga(ga_opt: ga.GAOptions, mo_opt: molecule.MoleculeOptions, scoring_options: Dict[str, Tuple[float, float]]) -> Tuple[List[Chem.Mol], List[float]]:
+def gbga(
+    ga_opt: ga.GAOptions,
+    mo_opt: molecule.MoleculeOptions,
+    scoring_options: Dict[str, Tuple[float, float]],
+    protonate_config=None,
+) -> Tuple[List[Chem.Mol], List[float]]:
     try:
         np.random.seed(ga_opt.random_seed)
         random.seed(ga_opt.random_seed)
 
         initial_population = ga.make_initial_population(ga_opt)
-        population, scores = score(initial_population, scoring_options, mo_opt)
+        population, scores = score(initial_population, scoring_options, mo_opt, protonate_config=protonate_config)
 
         if len(population) == 0:
             return [], []
@@ -133,7 +143,7 @@ def gbga(ga_opt: ga.GAOptions, mo_opt: molecule.MoleculeOptions, scoring_options
                 break
             initial_population = ga.reproduce(mating_pool, ga_opt, mo_opt)
 
-            new_population, new_scores = score(initial_population, scoring_options, mo_opt)
+            new_population, new_scores = score(initial_population, scoring_options, mo_opt, protonate_config=protonate_config)
             population, scores = ga.sanitize(population+new_population, scores+new_scores, ga_opt)
 
             if len(population) == 0:
@@ -162,8 +172,9 @@ def gbga_for_smiles(input_smiles: str,
                     input_name: str,
                     ga_opt: ga.GAOptions,
                     mo_opt: molecule.MoleculeOptions,
-                    scoring_options: Tuple[np.ndarray, np.ndarray]):
-    pop, scores = gbga(ga_opt, mo_opt, scoring_options)
+                    scoring_options: Tuple[np.ndarray, np.ndarray],
+                    protonate_config=None):
+    pop, scores = gbga(ga_opt, mo_opt, scoring_options, protonate_config=protonate_config)
     return input_smiles, input_name, pop, scores
 
 
@@ -175,6 +186,27 @@ def main():
     args = parser.parse_args()
 
     config = load_config(args.config)
+    config_dir = os.path.dirname(os.path.abspath(args.config))
+
+    # Optional protonation configuration passed through to molecule.protonate_smiles.
+    # Supported forms in the main --config JSON:
+    #   - "protonate_config": "path/to/protonate.json"
+    #   - "protonate": {"pH": 7.4, "cxcalc_exe": "/path/to/cxcalc", ...}
+    #   - "cxcalc_exe": "/path/to/cxcalc"  (shortcut)
+    protonate_config = None
+    if isinstance(config.get("protonate"), dict):
+        protonate_config = config["protonate"]
+    elif isinstance(config.get("protonate_config"), str):
+        protonate_config = config["protonate_config"]
+        if not os.path.isabs(protonate_config):
+            protonate_config = os.path.join(config_dir, protonate_config)
+    elif isinstance(config.get("cxcalc_exe"), str):
+        # Minimal inline override; users can add more keys if needed.
+        protonate_config = {
+            "pH": config.get("pH", 7.4),
+            "cxcalc_exe": config["cxcalc_exe"],
+            "verbose": bool(config.get("protonate_verbose", False)),
+        }
 
     input_entries = read_smiles_lines(args.input)
     if len(input_entries) == 0:
@@ -239,7 +271,7 @@ def main():
             substructure_filter=Filtering(molecule_filters),
             desired_charge=charge,
         )
-        pool_args.append((smiles, name, ga_opt, mo_opt, scoring_options))
+        pool_args.append((smiles, name, ga_opt, mo_opt, scoring_options, protonate_config))
 
     with Pool(n_cpus) as pool:
         output: List = pool.starmap(gbga_for_smiles, pool_args)

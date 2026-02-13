@@ -112,16 +112,34 @@ def tautomerize(
 
 
 def protonate_smiles(smi_lst, config=None):
+    """Protonate a list of SMILES.
+
+    Parameters
+    ----------
+    smi_lst : list[str]
+        Input SMILES strings.
+    config : None | str | dict
+        - None: load molecule/default_protonate.json
+        - str: path to a JSON config file
+        - dict: inline config overrides (e.g. {"cxcalc_exe": "/path/to/cxcalc"})
+    """
     if config is None:
         config = os.path.join(os.path.dirname(__file__), "default_protonate.json")
-    with open(config, 'r') as f:
-        ca_parms = json.load(f)
+
+    if isinstance(config, dict):
+        ca_parms = dict(config)
+    else:
+        with open(config, 'r') as f:
+            ca_parms = json.load(f)
 
     # cxcalc expects "SMILES name" per line.
     smiles = "\n".join(f"{smi} lig{i}" for i, smi in enumerate(smi_lst)) + "\n"
     protomers, _ = tautomerize(
-        smiles, pH=ca_parms["pH"], cxcalc_exe=ca_parms["cxcalc_exe"],
-        verbose=ca_parms.get("verbose", False))
+        smiles,
+        pH=ca_parms["pH"],
+        cxcalc_exe=ca_parms["cxcalc_exe"],
+        verbose=ca_parms.get("verbose", False),
+    )
     return protomers
 
 
